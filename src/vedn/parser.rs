@@ -9,9 +9,9 @@ use super::{
 /// EDN has no mandatory top-level delimiter. This function therefore returns a
 /// sequence of nodes.
 ///
-/// # Tags
-/// Typed elements (`#tag <value>`) are preserved as [`Kind::Typed`]. The
-/// parser never invokes tag handlers.
+/// # Typed forms
+/// Typed elements (`#<type> <value>`) are preserved as [`Kind::Typed`]. The
+/// parser never interprets types.
 pub fn parse(input: &str) -> Result<Vec<Node<'_>>, Error> {
     Parser::new(input).parse_all()
 }
@@ -197,7 +197,7 @@ impl<'a> Parser<'a> {
     ///
     /// - `#{ ... }`: sets
     /// - `#_ <value>`: discard
-    /// - `#tag <value>`: typed elements (EDN-strict tags start with an alphabetic character)
+    /// - `#<type> <value>`: typed elements (`<type>` starts with an alphabetic character)
     fn parse_dispatch(&mut self) -> Result<Node<'a>, Error> {
         let start = self.cursor.index;
         self.cursor.bump(); // '#'
@@ -218,8 +218,8 @@ impl<'a> Parser<'a> {
                 self.cursor.skip_ws_and_comments();
                 self.parse_node()
             }
-            Some(b) if is_ascii_alpha(b) => {
-                let ty = self.parse_tag_symbol()?;
+            Some(b'(') => {
+                let ty = self.parse_type_list(start)?;
                 self.cursor.skip_ws_and_comments();
                 if self.cursor.is_eof() {
                     return Err(self.cursor.error_here(ErrorKind::UnexpectedEof));
@@ -228,7 +228,22 @@ impl<'a> Parser<'a> {
                 Ok(Node::new(
                     self.cursor.span_from(start),
                     Kind::Typed(Typed {
-                        ty,
+                        ty: Box::new(ty),
+                        value: Box::new(value),
+                    }),
+                ))
+            }
+            Some(b) if is_ascii_alpha(b) => {
+                let ty = self.parse_type_symbol_node()?;
+                self.cursor.skip_ws_and_comments();
+                if self.cursor.is_eof() {
+                    return Err(self.cursor.error_here(ErrorKind::UnexpectedEof));
+                }
+                let value = self.parse_node()?;
+                Ok(Node::new(
+                    self.cursor.span_from(start),
+                    Kind::Typed(Typed {
+                        ty: Box::new(ty),
                         value: Box::new(value),
                     }),
                 ))
@@ -358,15 +373,51 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    /// Parses the symbol following `#` in a typed element.
-    fn parse_tag_symbol(&mut self) -> Result<Symbol<'a>, Error> {
+    /// Parses the type symbol following `#`, as a node.
+    fn parse_type_symbol_node(&mut self) -> Result<Node<'a>, Error> {
+        let start = self.cursor.index;
         let token_start = self.cursor.index;
         let token = self.cursor.take_while(token_start, |b| !is_delim_or_ws(b));
         let symbol = parse_symbol(token).map_err(|kind| {
             self.cursor
                 .error_span(kind, Span::new(token_start, self.cursor.index))
         })?;
-        Ok(symbol)
+        Ok(Node::new(
+            self.cursor.span_from(start),
+            Kind::Symbol(symbol),
+        ))
+    }
+
+    /// Parses a type list following `#`: `#(<type-op> <type-arg>...)`.
+    ///
+    /// The first element must be a symbol. Remaining elements are left
+    /// uninterpreted and can be used for type parameters or other extensions.
+    fn parse_type_list(&mut self, dispatch_start: usize) -> Result<Node<'a>, Error> {
+        let start = self.cursor.index;
+        let list = self.parse_list()?;
+
+        let Kind::List(items) = &list.kind else {
+            unreachable!("parse_list always returns Kind::List");
+        };
+
+        let Some(first) = items.first() else {
+            return Err(self.cursor.error_span(
+                ErrorKind::InvalidDispatch,
+                Span::new(dispatch_start, self.cursor.index),
+            ));
+        };
+
+        if !matches!(first.kind, Kind::Symbol(_)) {
+            return Err(self.cursor.error_span(
+                ErrorKind::InvalidDispatch,
+                Span::new(dispatch_start, self.cursor.index),
+            ));
+        }
+
+        Ok(Node::new(
+            self.cursor.span_from(start),
+            Kind::List(items.clone()),
+        ))
     }
 
     /// Parses a token that is not delimited by a special leading character.
@@ -766,16 +817,81 @@ mod tests {
     }
 
     #[test]
-    fn parse_tags_as_typing_syntax() {
+    fn parse_typed_string_as_typing_syntax() {
         let values = parse("#inst \"2020-01-01\"").unwrap();
         let Kind::Typed(typed) = &values[0].kind else {
             panic!("expected typed");
         };
-        assert_eq!(typed.ty.name, "inst");
+        let Kind::Symbol(ty) = &typed.ty.kind else {
+            panic!("expected symbol type");
+        };
+        assert_eq!(ty.name, "inst");
         let Kind::String(s) = &typed.value.kind else {
             panic!("expected string");
         };
         assert_eq!(s.as_str(), "2020-01-01");
+    }
+
+    #[test]
+    fn parse_parameterized_typed_list() {
+        // `#` only applies to the following *value*.
+        // Type references themselves are plain forms: `(vec int)`, `(vec (vec int))`, ...
+        let values = parse("#(vec int) [1 2]").unwrap();
+        let Kind::Typed(typed) = &values[0].kind else {
+            panic!("expected typed");
+        };
+
+        let Kind::List(type_list) = &typed.ty.kind else {
+            panic!("expected list type");
+        };
+        assert_symbol(&type_list[0], "vec");
+        assert_symbol(&type_list[1], "int");
+
+        let Kind::Vector(v) = &typed.value.kind else {
+            panic!("expected vector value");
+        };
+        assert_eq!(v.len(), 2);
+    }
+
+    #[test]
+    fn parse_nested_parameterized_typed_list() {
+        let values = parse("#(vec (vec int)) [ [1] [2] ]").unwrap();
+        let Kind::Typed(typed) = &values[0].kind else {
+            panic!("expected typed");
+        };
+
+        let Kind::List(type_list) = &typed.ty.kind else {
+            panic!("expected list type");
+        };
+        assert_symbol(&type_list[0], "vec");
+
+        let Kind::List(inner) = &type_list[1].kind else {
+            panic!("expected nested list type reference");
+        };
+        assert_symbol(&inner[0], "vec");
+        assert_symbol(&inner[1], "int");
+    }
+
+    #[test]
+    fn parse_typed_list_with_multiple_type_parameters() {
+        // Example: a map from keyword -> int.
+        let values = parse("#(map keyword int) {:a 1}").unwrap();
+        let Kind::Typed(typed) = &values[0].kind else {
+            panic!("expected typed");
+        };
+
+        let Kind::List(type_list) = &typed.ty.kind else {
+            panic!("expected list type");
+        };
+        assert_symbol(&type_list[0], "map");
+        assert_symbol(&type_list[1], "keyword");
+        assert_symbol(&type_list[2], "int");
+
+        let Kind::Map(entries) = &typed.value.kind else {
+            panic!("expected map value");
+        };
+        assert_eq!(entries.len(), 1);
+        assert_keyword(&entries[0].0, ":a");
     }
 
     #[test]
@@ -803,11 +919,14 @@ mod tests {
         assert_symbol(&defn_list[0], "defn");
 
         // In the sample the function name is *typed*:
-        // `(defn #int sum ...)` is read as `Tagged(tag=int, value=Symbol(sum))`.
+        // `(defn #int sum ...)` is read as `Typed(ty=int, value=Symbol(sum))`.
         let Kind::Typed(typed_name) = &defn_list[1].kind else {
             panic!("expected typed function name");
         };
-        assert_eq!(typed_name.ty.name, "int");
+        let Kind::Symbol(ty) = &typed_name.ty.kind else {
+            panic!("expected symbol type");
+        };
+        assert_eq!(ty.name, "int");
 
         let Kind::Symbol(name) = &typed_name.value.kind else {
             panic!("expected function name symbol");
@@ -822,7 +941,10 @@ mod tests {
         let Kind::Typed(param0_type) = &params[0].kind else {
             panic!("expected typed param");
         };
-        assert_eq!(param0_type.ty.name, "int");
+        let Kind::Symbol(ty) = &param0_type.ty.kind else {
+            panic!("expected symbol type");
+        };
+        assert_eq!(ty.name, "int");
 
         let Kind::Symbol(param0_name) = &param0_type.value.kind else {
             panic!("expected param name symbol");

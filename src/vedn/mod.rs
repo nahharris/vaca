@@ -3,10 +3,10 @@
 //! This module implements a streaming parser based on the EDN specification.
 //! The only difference is the semantics of typed elements.
 //!
-//! # Vaca extension: tags as types
-//! In Vaca, EDN typed elements (e.g. `#int 1`, `#inst "..."`) are used as a
-//! syntax to express typing. The frontend reader therefore parses tags into a
-//! generic typed node and leaves all semantic interpretation to later stages
+//! # Vaca extension: typed forms
+//! In Vaca, EDN's `#` dispatch (e.g. `#int 1`, `#inst "..."`) is used as a
+//! syntax to express typing. The frontend reader therefore parses typed forms
+//! into a generic typed node and leaves all semantic interpretation to later stages
 //! (type checking, macro expansion, runtime, STL).
 //!
 //! # API

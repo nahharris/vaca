@@ -27,9 +27,10 @@ impl<'a> Node<'a> {
 
 /// EDN value kinds.
 ///
-/// This enum is intentionally focused on syntactic structure. Notably, typed
-/// elements (`#tag <form>`) are represented generically as [`Kind::Tagged`].
-/// In Vaca, tags are used as typing syntax and are interpreted by later stages.
+/// This enum is intentionally focused on syntactic structure.
+///
+/// The `#` dispatch is used by Vaca as typing syntax; typed elements
+/// (`#<type> <form>`) are represented as [`Kind::Typed`].
 #[derive(Debug, Clone, PartialEq)]
 pub enum Kind<'a> {
     /// The `nil` value.
@@ -54,7 +55,7 @@ pub enum Kind<'a> {
     Map(Vec<(Node<'a>, Node<'a>)>),
     /// A set: `#{<value>...}`.
     Set(Vec<Node<'a>>),
-    /// A typed element: `#tag <value>`.
+    /// A typed element: `#<type> <value>`.
     Typed(Typed<'a>),
 }
 
@@ -113,21 +114,24 @@ pub struct Keyword<'a> {
     pub name: &'a str,
 }
 
-/// A typed EDN element: `#tag <value>`.
+/// A typed EDN element: `#<type> <value>`.
 ///
-/// EDN tags provide an extensibility mechanism. The EDN spec describes tags as
-/// a way to change the semantic interpretation of the following element.
+/// EDN's `#` dispatch is originally meant for tagged elements.
 ///
-/// Vaca uses tags specifically as typing syntax:
+/// Vaca uses this syntax specifically for typing:
 ///
 /// - `#int 1` means "the value `1` of type `int`".
 /// - `#inst "..."` means "the string literal typed as `inst`".
 ///
-/// The reader does not attach meaning to tags. It only preserves structure.
+/// The reader does not attach meaning to types. It only preserves structure.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Typed<'a> {
-    /// The tag symbol (parsed with strict EDN symbol rules).
-    pub ty: Symbol<'a>,
+    /// The type form.
+    ///
+    /// Historically this was just a symbol (`#int 1`). Vaca also allows a
+    /// parameterized type using a list whose first element is a symbol
+    /// (`#(vec int) value`).
+    pub ty: Box<Node<'a>>,
     /// The typed value.
     pub value: Box<Node<'a>>,
 }
