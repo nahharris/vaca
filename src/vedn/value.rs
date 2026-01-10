@@ -27,7 +27,7 @@ impl<'a> Node<'a> {
 
 /// EDN value kinds.
 ///
-/// This enum is intentionally focused on syntactic structure. Notably, tagged
+/// This enum is intentionally focused on syntactic structure. Notably, typed
 /// elements (`#tag <form>`) are represented generically as [`Kind::Tagged`].
 /// In Vaca, tags are used as typing syntax and are interpreted by later stages.
 #[derive(Debug, Clone, PartialEq)]
@@ -54,8 +54,8 @@ pub enum Kind<'a> {
     Map(Vec<(Node<'a>, Node<'a>)>),
     /// A set: `#{<value>...}`.
     Set(Vec<Node<'a>>),
-    /// A tagged element: `#tag <value>`.
-    Tagged(Tagged<'a>),
+    /// A typed element: `#tag <value>`.
+    Typed(Typed<'a>),
 }
 
 /// A parsed EDN string literal.
@@ -113,7 +113,7 @@ pub struct Keyword<'a> {
     pub name: &'a str,
 }
 
-/// A tagged EDN element: `#tag <value>`.
+/// A typed EDN element: `#tag <value>`.
 ///
 /// EDN tags provide an extensibility mechanism. The EDN spec describes tags as
 /// a way to change the semantic interpretation of the following element.
@@ -125,10 +125,10 @@ pub struct Keyword<'a> {
 ///
 /// The reader does not attach meaning to tags. It only preserves structure.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Tagged<'a> {
+pub struct Typed<'a> {
     /// The tag symbol (parsed with strict EDN symbol rules).
-    pub tag: Symbol<'a>,
-    /// The tagged value.
+    pub ty: Symbol<'a>,
+    /// The typed value.
     pub value: Box<Node<'a>>,
 }
 

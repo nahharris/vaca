@@ -8,4 +8,4 @@
 
 pub mod vedn;
 
-pub use vedn::{parse, Error, ErrorKind, Keyword, Kind, Node, Parser, Span, Str, Symbol, Tagged};
+pub use vedn::{parse, Error, ErrorKind, Keyword, Kind, Node, Parser, Span, Str, Symbol, Typed};

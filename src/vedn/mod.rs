@@ -1,12 +1,12 @@
-//! Strict EDN reader used by Vaca's frontend.
+//! Vaca Extensible Data Notation (VEDN) reader module, derived from [EDN](https://github.com/edn-format/edn/blob/master/README.md)
 //!
-//! This module implements a streaming parser for the full EDN specification.
-//! It intentionally does **not** attach semantics to tagged elements.
+//! This module implements a streaming parser based on the EDN specification.
+//! The only difference is the semantics of typed elements.
 //!
 //! # Vaca extension: tags as types
-//! In Vaca, EDN tagged elements (e.g. `#int 1`, `#inst "..."`) are used as a
+//! In Vaca, EDN typed elements (e.g. `#int 1`, `#inst "..."`) are used as a
 //! syntax to express typing. The frontend reader therefore parses tags into a
-//! generic tagged node and leaves all semantic interpretation to later stages
+//! generic typed node and leaves all semantic interpretation to later stages
 //! (type checking, macro expansion, runtime, STL).
 //!
 //! # API
@@ -21,4 +21,4 @@ pub mod value;
 
 pub use error::{Error, ErrorKind, Span};
 pub use parser::{parse, Parser};
-pub use value::{Keyword, Kind, Node, Number, NumberSuffix, Str, Symbol, Tagged};
+pub use value::{Keyword, Kind, Node, Number, NumberSuffix, Str, Symbol, Typed};

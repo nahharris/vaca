@@ -1,7 +1,7 @@
 use super::{
     cursor::Cursor,
     error::{Error, ErrorKind, Span},
-    value::{Keyword, Kind, Node, Number, NumberSuffix, Str, Symbol, Tagged},
+    value::{Keyword, Kind, Node, Number, NumberSuffix, Str, Symbol, Typed},
 };
 
 /// Parses all top-level EDN elements from `input`.
@@ -10,7 +10,7 @@ use super::{
 /// sequence of nodes.
 ///
 /// # Tags
-/// Tagged elements (`#tag <value>`) are preserved as [`Kind::Tagged`]. The
+/// Typed elements (`#tag <value>`) are preserved as [`Kind::Typed`]. The
 /// parser never invokes tag handlers.
 pub fn parse(input: &str) -> Result<Vec<Node<'_>>, Error> {
     Parser::new(input).parse_all()
@@ -197,7 +197,7 @@ impl<'a> Parser<'a> {
     ///
     /// - `#{ ... }`: sets
     /// - `#_ <value>`: discard
-    /// - `#tag <value>`: tagged elements (EDN-strict tags start with an alphabetic character)
+    /// - `#tag <value>`: typed elements (EDN-strict tags start with an alphabetic character)
     fn parse_dispatch(&mut self) -> Result<Node<'a>, Error> {
         let start = self.cursor.index;
         self.cursor.bump(); // '#'
@@ -219,7 +219,7 @@ impl<'a> Parser<'a> {
                 self.parse_node()
             }
             Some(b) if is_ascii_alpha(b) => {
-                let tag = self.parse_tag_symbol()?;
+                let ty = self.parse_tag_symbol()?;
                 self.cursor.skip_ws_and_comments();
                 if self.cursor.is_eof() {
                     return Err(self.cursor.error_here(ErrorKind::UnexpectedEof));
@@ -227,8 +227,8 @@ impl<'a> Parser<'a> {
                 let value = self.parse_node()?;
                 Ok(Node::new(
                     self.cursor.span_from(start),
-                    Kind::Tagged(Tagged {
-                        tag,
+                    Kind::Typed(Typed {
+                        ty,
                         value: Box::new(value),
                     }),
                 ))
@@ -358,7 +358,7 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    /// Parses the symbol following `#` in a tagged element.
+    /// Parses the symbol following `#` in a typed element.
     fn parse_tag_symbol(&mut self) -> Result<Symbol<'a>, Error> {
         let token_start = self.cursor.index;
         let token = self.cursor.take_while(token_start, |b| !is_delim_or_ws(b));
@@ -768,11 +768,11 @@ mod tests {
     #[test]
     fn parse_tags_as_typing_syntax() {
         let values = parse("#inst \"2020-01-01\"").unwrap();
-        let Kind::Tagged(tagged) = &values[0].kind else {
-            panic!("expected tagged");
+        let Kind::Typed(typed) = &values[0].kind else {
+            panic!("expected typed");
         };
-        assert_eq!(tagged.tag.name, "inst");
-        let Kind::String(s) = &tagged.value.kind else {
+        assert_eq!(typed.ty.name, "inst");
+        let Kind::String(s) = &typed.value.kind else {
             panic!("expected string");
         };
         assert_eq!(s.as_str(), "2020-01-01");
@@ -804,10 +804,10 @@ mod tests {
 
         // In the sample the function name is *typed*:
         // `(defn #int sum ...)` is read as `Tagged(tag=int, value=Symbol(sum))`.
-        let Kind::Tagged(typed_name) = &defn_list[1].kind else {
-            panic!("expected tagged typed function name");
+        let Kind::Typed(typed_name) = &defn_list[1].kind else {
+            panic!("expected typed function name");
         };
-        assert_eq!(typed_name.tag.name, "int");
+        assert_eq!(typed_name.ty.name, "int");
 
         let Kind::Symbol(name) = &typed_name.value.kind else {
             panic!("expected function name symbol");
@@ -819,10 +819,10 @@ mod tests {
             panic!("expected params vector");
         };
 
-        let Kind::Tagged(param0_type) = &params[0].kind else {
-            panic!("expected tagged param type");
+        let Kind::Typed(param0_type) = &params[0].kind else {
+            panic!("expected typed param");
         };
-        assert_eq!(param0_type.tag.name, "int");
+        assert_eq!(param0_type.ty.name, "int");
 
         let Kind::Symbol(param0_name) = &param0_type.value.kind else {
             panic!("expected param name symbol");
