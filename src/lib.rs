@@ -6,6 +6,6 @@
 //!
 //! Currently it contains Vaca's frontend reader: a strict EDN parser.
 
-pub mod edn;
+pub mod vedn;
 
-pub use edn::{parse, Error, ErrorKind, Keyword, Kind, Node, Parser, Span, Str, Symbol, Tagged};
+pub use vedn::{parse, Error, ErrorKind, Keyword, Kind, Node, Parser, Span, Str, Symbol, Tagged};
