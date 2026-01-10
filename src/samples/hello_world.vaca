@@ -1,4 +1,8 @@
-(defapp hello-world 
-  :using [(stl.io println)] 
-  :main (fn () Void 
-        :as (println "Hello World")))
+(use stl.io [println])
+
+(defn #int sum [#int a #int b]
+  :doc "Takes 2 numbers and add them together"
+  (+ a b))
+
+(defn #void main []
+  (println "Hello World"))

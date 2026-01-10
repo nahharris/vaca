@@ -4,5 +4,3 @@ version = "0.7.0"
 edition = "2021"
 
 [dependencies]
-edn-format = "3.3.0"
-ordered-float = "2.8.0"
