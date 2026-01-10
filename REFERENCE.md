@@ -41,77 +41,43 @@
 ### `defmacro`
 
 ```clojure
-(defmacro defmacro (symbol stl.macro/Symbol
-                    params stl.macro/List)
-          :options (options stl.macro/List
-                    flags stl.macro/List
-                    ... stl.macro/List
-                    doc stl.macro/StringLiteral
-                    as stl.macro/Form)
-          :flags (private)
+(defmacro defmacro [#stl.macro/Symbol symbol
+                    #stl.macro/List params]
+          :options [#stl.macro/Vector options
+                    #stl.macro/Vector flags
+                    #stl.macro/StringLiteral doc
+                    #stl.macro/Form as]
+          :flags [private]
           :doc "Defines a macro")
 ```
 
 ### `def`
 
 ```clojure
-(defmacro def (symbol stl.macro/Symbol 
-               type stl.macro/Type) 
-          :options (using stl.macro/List
-                    doc stl.macro/StringLiteral 
-                    as stl.macro/Form)
-          :flags (private)
+(defmacro def [#(stl.macro/Typed stl.macro/Symbol) symbol
+               #stl.macro/Form value]
+          :options [#stl.macro/StringLiteral doc]
+          :flags [private]
           :doc "Defines a value")
-```
-
-### `defn`
-
-```clojure
-(defmacro defn (symbol stl.macro/Symbol
-                params stl.macro/List
-                type stl.macro/Form)
-          :options (using stl.macro/List
-                    doc stl.macro/StringLiteral)
-          :flags (private)
-          :... (as stl.macro/Form)
-          :doc "Defines a function")
-```
-
-### `defmod`
-
-```clojure
-(defmacro defmod (symbol stl.macro/Symbol)
-          :options (using stl.macro/List
-                    doc stl.macro/StringLiteral)
-          :flags (private)
-          :... (as stl.macro/Form)
-          :doc "Defines a module")
-```
-
-### `defapp`
-
-```clojure
-(defmacro defapp (symbol stl.macro/Symbol)
-          :options (using stl.macro/List
-                    doc stl.macro/StringLiteral
-                    main stl.macro/List)
-          :flags (private)
-          :... (as stl.macro/Form)
-          :doc "Defines an application")
 ```
 
 ### `deftype`
 
 ```clojure
-(defmacro deftype (symbol stl.macro/Symbol
-                   type stl.macro/Form)
-          :options (using stl.macro/List
-                    doc stl.macro/StringLiteral)
-          :flags (private)
-          :doc "Defines a type"
-          :as {:kind :type
-               :symbol symbol
-               :value (stl.macro/Use type using)
-               :doc doc
-               :vis (if private :private :public)})
+(defmacro deftype [#stl.macro/Symbol symbol
+                   #(stl.macro/Form (stl.macro/Typed stl.macro/Symbol)) value]
+          :options [#stl.macro/StringLiteral doc]
+          :flags [private]
+          :doc "Defines a type")
+```
+
+### `defn`
+
+```clojure
+(defmacro defn [#(stl.macro/Typed stl.macro/Symbol) symbol
+                #(stl.macro/Vector (stl.macro/Typed stl.macro/Symbol)) params
+                #(stl.macro/Vector stl.macro/Form) value]
+          :options [#stl.macro/StringLiteral doc]
+          :flags [private]
+          :doc "Defines a function")
 ```
