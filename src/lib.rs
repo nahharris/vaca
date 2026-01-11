@@ -7,5 +7,6 @@
 //! Currently it contains Vaca's frontend reader: a strict EDN parser.
 
 pub mod vedn;
+pub mod bezerro;
 
 pub use vedn::{parse, Error, ErrorKind, Keyword, Kind, Node, Parser, Span, Str, Symbol, Typed};
