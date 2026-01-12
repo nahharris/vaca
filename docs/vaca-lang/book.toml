@@ -1,0 +1,14 @@
+[book]
+title = "The Vaca Language Book"
+authors = ["Vaca contributors"]
+language = "en"
+src = "src"
+
+[build]
+build-dir = "book"
+create-missing = true
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+no-section-label = true
