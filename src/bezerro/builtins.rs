@@ -53,6 +53,8 @@ pub fn register_builtins(env: &mut Env) {
     env.define("map".into(), builtin("map", builtin_map));
     env.define("reduce".into(), builtin("reduce", builtin_reduce));
     env.define("scan".into(), builtin("scan", builtin_scan));
+    env.define("filter".into(), builtin("filter", builtin_filter));
+    env.define("find".into(), builtin("find", builtin_find));
 
     // \"macro\" fns that we treat as builtins for now
     env.define("assert".into(), builtin("assert", builtin_assert));
@@ -571,6 +573,41 @@ fn builtin_scan(args: &[Value], env: &Rc<RefCell<Env>>) -> Result<Value, EvalErr
         out.push(acc.clone());
     }
     Ok(Value::Vector(out))
+}
+
+fn builtin_filter(args: &[Value], env: &Rc<RefCell<Env>>) -> Result<Value, EvalError> {
+    expect_arity(args, 2)?;
+    let f = args[0].clone();
+    let Value::Vector(v) = &args[1] else {
+        return Err(EvalError::TypeError {
+            expected: "vector",
+            got: args[1].type_name(),
+        });
+    };
+    let mut out = Vec::with_capacity(v.len());
+    for item in v {
+        if apply(&f, &[item.clone()], env)?.is_truthy() {
+            out.push(item.clone());
+        }
+    }
+    Ok(Value::Vector(out))
+}
+
+fn builtin_find(args: &[Value], env: &Rc<RefCell<Env>>) -> Result<Value, EvalError> {
+    expect_arity(args, 2)?;
+    let f = args[0].clone();
+    let Value::Vector(v) = &args[1] else {
+        return Err(EvalError::TypeError {
+            expected: "vector",
+            got: args[1].type_name(),
+        });
+    };
+    for item in v {
+        if apply(&f, &[item.clone()], env)?.is_truthy() {
+            return Ok(item.clone());
+        }
+    }
+    Ok(Value::Nil)
 }
 
 fn builtin_assert(args: &[Value], _env: &Rc<RefCell<Env>>) -> Result<Value, EvalError> {
