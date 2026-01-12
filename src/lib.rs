@@ -9,4 +9,4 @@
 pub mod vedn;
 pub mod bezerro;
 
-pub use vedn::{parse, Error, ErrorKind, Keyword, Kind, Node, Parser, Span, Str, Symbol, Typed};
+pub use vedn::{parse, Error, ErrorKind, Keyword, Kind, Node, Parser, Span, Str, Symbol};

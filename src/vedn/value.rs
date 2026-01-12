@@ -14,6 +14,10 @@ use super::Span;
 pub struct Node<'a> {
     /// Byte span of the syntactic element within the input.
     pub span: Span,
+    /// Optional annotation attached to this node (read from `#<form> <form>`).
+    ///
+    /// The annotation itself is a full VEDN form.
+    pub annotation: Option<Box<Node<'a>>>,
     /// The element kind.
     pub kind: Kind<'a>,
 }
@@ -21,7 +25,11 @@ pub struct Node<'a> {
 impl<'a> Node<'a> {
     /// Constructs a new node.
     pub fn new(span: Span, kind: Kind<'a>) -> Self {
-        Node { span, kind }
+        Node {
+            span,
+            annotation: None,
+            kind,
+        }
     }
 }
 
@@ -29,8 +37,10 @@ impl<'a> Node<'a> {
 ///
 /// This enum is intentionally focused on syntactic structure.
 ///
-/// The `#` dispatch is used by Vaca as typing syntax; typed elements
-/// (`#<type> <form>`) are represented as [`Kind::Typed`].
+/// The `#` dispatch is used by Vaca to annotate forms.
+///
+/// Annotated forms (`#<form> <form>`) are represented by setting
+/// [`Node::annotation`].
 #[derive(Debug, Clone, PartialEq)]
 pub enum Kind<'a> {
     /// The `nil` value.
@@ -53,10 +63,8 @@ pub enum Kind<'a> {
     Vector(Vec<Node<'a>>),
     /// A map: `{<key> <value> ...}`.
     Map(Vec<(Node<'a>, Node<'a>)>),
-    /// A set: `#{<value>...}`.
+    /// A set: `%{<form>*}`.
     Set(Vec<Node<'a>>),
-    /// A typed element: `#<type> <value>`.
-    Typed(Typed<'a>),
 }
 
 /// A parsed EDN string literal.
@@ -103,37 +111,20 @@ pub struct Symbol<'a> {
 /// An EDN keyword.
 ///
 /// Keywords are identifiers which typically designate themselves, and always
-/// begin with `:`.
+/// use `:` as a marker.
+///
+/// VEDN accepts both keyword spellings:
+///
+/// - `:<symbol>` (EDN-style)
+/// - `<symbol>:` (Vaca-style, used heavily in maps like `{x: 1, y: 2}`)
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
 pub struct Keyword<'a> {
-    /// Full keyword text as it appeared in the input (including the leading `:`).
+    /// Full keyword text as it appeared in the input.
     pub raw: &'a str,
     /// Optional namespace/prefix component.
     pub namespace: Option<&'a str>,
     /// Name component.
     pub name: &'a str,
-}
-
-/// A typed EDN element: `#<type> <value>`.
-///
-/// EDN's `#` dispatch is originally meant for tagged elements.
-///
-/// Vaca uses this syntax specifically for typing:
-///
-/// - `#int 1` means "the value `1` of type `int`".
-/// - `#inst "..."` means "the string literal typed as `inst`".
-///
-/// The reader does not attach meaning to types. It only preserves structure.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Typed<'a> {
-    /// The type form.
-    ///
-    /// Historically this was just a symbol (`#int 1`). Vaca also allows a
-    /// parameterized type using a list whose first element is a symbol
-    /// (`#(vec int) value`).
-    pub ty: Box<Node<'a>>,
-    /// The typed value.
-    pub value: Box<Node<'a>>,
 }
 
 /// Numeric suffix.

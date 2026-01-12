@@ -264,7 +264,10 @@ pub fn node_to_form(node: &Node<'_>) -> Value {
         Kind::Bool(b) => Value::Bool(*b),
         Kind::Char(c) => Value::Char(*c),
         Kind::String(s) => Value::String(s.as_str().to_string()),
-        Kind::Keyword(k) => Value::Keyword(k.raw.trim_start_matches(':').to_string()),
+        Kind::Keyword(k) => Value::Keyword(match k.namespace {
+            Some(ns) => format!("{ns}/{}", k.name),
+            None => k.name.to_string(),
+        }),
         Kind::Symbol(s) => Value::Symbol(s.raw.to_string()),
         Kind::Number(n) => number_to_value(n),
         Kind::List(items) => Value::List(items.iter().map(node_to_form).collect()),
@@ -278,7 +281,6 @@ pub fn node_to_form(node: &Node<'_>) -> Value {
                 .map(|(k, v)| (node_to_form(k), node_to_form(v)))
                 .collect::<HashMap<_, _>>(),
         )),
-        Kind::Typed(t) => node_to_form(&t.value),
     }
 }
 

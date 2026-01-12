@@ -246,7 +246,7 @@ impl fmt::Display for Value {
                 write!(f, "}}")
             }
             Value::Set(items) => {
-                write!(f, "#{{")?;
+                write!(f, "%{{")?;
                 let mut vec: Vec<_> = items.iter().collect();
                 vec.sort_by(|a, b| a.to_string().cmp(&b.to_string()));
                 for (i, item) in vec.into_iter().enumerate() {
