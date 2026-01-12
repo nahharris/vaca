@@ -24,3 +24,9 @@ Cargo.lock
 # already existing elements were commented out
 
 #/target
+
+# Cursor / local IDE state
+.cursor/
+
+# mdBook output (generated)
+docs/vaca-lang/book/
