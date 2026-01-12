@@ -323,39 +323,14 @@ fn builtin_lte(args: &[Value], _env: &Rc<RefCell<Env>>) -> Result<Value, EvalErr
     num_cmp(args, |a, b| a <= b)
 }
 
-fn value_eq(a: &Value, b: &Value) -> bool {
-    match (a, b) {
-        (Value::Nil, Value::Nil) => true,
-        (Value::Bool(x), Value::Bool(y)) => x == y,
-        (Value::Int(x), Value::Int(y)) => x == y,
-        (Value::Float(x), Value::Float(y)) => x == y,
-        (Value::Int(x), Value::Float(y)) => (*x as f64) == *y,
-        (Value::Float(x), Value::Int(y)) => *x == (*y as f64),
-        (Value::Char(x), Value::Char(y)) => x == y,
-        (Value::String(x), Value::String(y)) => x == y,
-        (Value::Keyword(x), Value::Keyword(y)) => x == y,
-        (Value::Symbol(x), Value::Symbol(y)) => x == y,
-        (Value::List(x), Value::List(y)) => x.len() == y.len() && x.iter().zip(y).all(|(a, b)| value_eq(a, b)),
-        (Value::Vector(x), Value::Vector(y)) => x.len() == y.len() && x.iter().zip(y).all(|(a, b)| value_eq(a, b)),
-        (Value::Set(x), Value::Set(y)) => x.len() == y.len() && x.iter().zip(y).all(|(a, b)| value_eq(a, b)),
-        (Value::Map(x), Value::Map(y)) => {
-            x.len() == y.len()
-                && x.iter()
-                    .zip(y)
-                    .all(|((ka, va), (kb, vb))| value_eq(ka, kb) && value_eq(va, vb))
-        }
-        _ => false,
-    }
-}
-
 fn builtin_eq(args: &[Value], _env: &Rc<RefCell<Env>>) -> Result<Value, EvalError> {
     expect_arity(args, 2)?;
-    Ok(Value::Bool(value_eq(&args[0], &args[1])))
+    Ok(Value::Bool(args[0] == args[1]))
 }
 
 fn builtin_neq(args: &[Value], _env: &Rc<RefCell<Env>>) -> Result<Value, EvalError> {
     expect_arity(args, 2)?;
-    Ok(Value::Bool(!value_eq(&args[0], &args[1])))
+    Ok(Value::Bool(args[0] != args[1]))
 }
 
 fn builtin_and(args: &[Value], _env: &Rc<RefCell<Env>>) -> Result<Value, EvalError> {
