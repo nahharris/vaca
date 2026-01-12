@@ -1,0 +1,6 @@
+(defn #int factorial [#int n]
+    :doc "Calculates the factorial of a number"
+    (if (< n 2) 1 (* n (factorial (- n 1)))))
+
+(defn #void main []
+    (println (factorial 5)))

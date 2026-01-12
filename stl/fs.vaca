@@ -1,0 +1,22 @@
+(def file usize
+    :doc "The file is an abstraction over an OS file descriptor")
+
+(def fs-error 
+    (enum :not-found))
+
+(def file-mode
+    (enum 
+        :read 
+        :write 
+        :read-write 
+        :append 
+        :read-append 
+        :read-binary 
+        :write-binary 
+        :read-write-binary 
+        :append-binary 
+        :read-append-binary))
+
+(defn #(result file fs-error) file.open [#string path #file-mode mode]
+    :doc "Opens a file given its path"
+    (result.err :not-found))
