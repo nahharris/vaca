@@ -10,15 +10,14 @@ A call is written as a list form:
 (f 1 2 3)
 ```
 
-The first element evaluates to a function value; the remaining elements are arguments.
+The first element evaluates to a function value; the remaining elements are the arguments.
 
 ## Anonymous functions
 
-Anonymous functions are created with `fn`:
+Anonymous functions are created with the `fn` macro:
 
 ```clojure
-(def add2 (fn [x] (+ x 2)))
-(add2 40) ;; => 42
+((fn [x] (+ x 2)) 40) ;; => 42
 ```
 
 ## Named functions
@@ -28,13 +27,11 @@ Named functions are defined with `defn`:
 ```clojure
 (defn #int sum [#int a #int b]
   (+ a b))
+
+(sum 40 2) ;; => 42
 ```
+> Notice how we use `#int` to type-annotate the function parameters `a` and `b` but also to 
+> annotate the function result.
 
-This example uses typed dispatch (`#int`) to ascribe types to the function result and parameters.
-
-## Arity
-
-Functions have an arity: the number of arguments they accept.
-
-This specification defines the observable behavior of calling functions with the wrong arity in
-the “Errors” chapter.
+> The number of arguments a function accepts is called its **arity**. In the above `sum`example, 
+> the arity is 2.

@@ -44,24 +44,30 @@ Characters are written with a leading backslash:
 \newline
 ```
 
-### Keywords
-
-Keywords begin with `:` and typically designate themselves:
-
-```clojure
-:name
-:user/id
-```
-
 ### Symbols
 
-Symbols name bindings and refer to functions, values, and types:
+Symbols are names for bindings that refer to functions, values, or types:
 
 ```clojure
 x
 println
 stl.str/trim
 ```
+
+### Keywords
+
+Keywords begin or end with `:` and typically designate themselves:
+
+```clojure
+:name
+user/id:
+
+(== :kw kw:) ;; => true
+```
+
+> If a keyword both begins and ends with `:` it won't be the same the keyword that starts with `:` but not 
+> ends with `:` (and vice versa).
+> So `:kw:` is not the same as `:kw` or `kw:` or `kw` (the symbol).
 
 ## Collection literals
 
@@ -85,15 +91,16 @@ Maps are written with braces: `{k v ...}` and must contain an even number of for
 
 Sets are written with `%{...}`.
 
-## Typed dispatch (preview)
+## Annotations
 
-Vaca uses EDN’s `#` dispatch syntax to express typing at the surface level:
+Vaca uses `#` to annotate a form with another form as sort of adding metadata to the form. 
+If you annotate a form with a form that evaluates to a type, it will be type-annotating the form.
+This has 2 main uses:
+
+1. Annotating a new symbol in its definition 
+2. Casting a value
 
 ```clojure
-#uint 1
-#string "hello"
-#(vec int) [1 2 3]
+(def #string name "Vaca") ; type-annotates the `name` binding as a string
+(def age #uint 2026) ; casts the integer 2026 to an unsigned integer
 ```
-
-Typed dispatch is specified precisely in the “Typed dispatch” and “Type system” parts of this
-book.

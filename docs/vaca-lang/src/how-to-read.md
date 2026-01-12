@@ -26,7 +26,7 @@ toolchain (interpreter, compiler, VM) claiming conformance with this specificati
 
 ## Examples
 
-Examples use EDN-style syntax with Vaca conventions. When an example shows results, it uses an
+Examples use Vaca syntax. When an example shows results, it uses an
 informal REPL style:
 
 ```clojure

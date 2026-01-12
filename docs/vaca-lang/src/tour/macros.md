@@ -2,17 +2,19 @@
 
 Macros are compile-time (or expand-time) functions that transform code (forms) into other code.
 
-They are a major part of Vaca’s extensibility story: many “language constructs” can be defined as
+They are a major part of Vaca’s extensibility: many language constructs can be defined as
 macros in the standard prelude.
 
 ## Code is data
 
-Vaca code is made of ordinary data structures (lists, vectors, symbols, …). Quotation prevents a
-form from being evaluated and instead treats it as data:
+Vaca code is made of ordinary data structures (lists, vectors, symbols, etc.). Quotation prevents a
+form from being evaluated and instead treats it as data. For example:
 
 ```clojure
-(quote (+ 1 2)) ;; a list value, not the number 3
+(quote (+ 1 2)) ;; => (+ 1 2)
 ```
+
+Notice how the result is not the number 3, but the list `(+ 1 2)`.
 
 ## Defining a macro
 

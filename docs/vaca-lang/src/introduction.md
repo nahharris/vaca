@@ -1,8 +1,8 @@
 # Introduction
 
-Vaca is a functional, Lisp-family programming language with a clean EDN-derived surface syntax.
-It is designed to be small at the core, extensible by nature, and pleasant for both scripting and
-large programs.
+Vaca (from portuguese "cow") is a functional, Lisp-family programming language with a clean EDN-derived 
+syntax called VEDN. It is designed to be small at the core, extensible by nature, and pleasant for both 
+scrips and larger programs.
 
 This book is the **normative specification** of the Vaca language.
 
@@ -12,28 +12,17 @@ This book is the **normative specification** of the Vaca language.
   representation (forms) and strong composability.
 - **Functional-first**: immutable data by default, first-class functions, and a standard library
   centered on higher-order operations.
-- **Self-declaring**: almost all language constructs are definable in Vaca itself as part of the
-  standard prelude and standard library; the host toolchain provides only a minimal kernel needed
-  for bootstrapping.
+- **Self-declaring**: almost all language constructs can be defined in Vaca itself built on top
+  of a minimal kernel.
 - **Tooling-friendly**: readable syntax, stable semantics, and precise error reporting.
-
-## Non-goals
-
-- **Accidental complexity**: the language avoids multiple competing syntaxes for the same concept.
-- **Spec tied to any single implementation**: this specification is independent of any specific 
- implementation.
 
 ## A minimal taste
 
 ```clojure
-(use @stl.io [println])
+(use @stl.io [println]) ; Imports the `println` function from the `stl.io` module
 
-(defn #void main []
-  (println "Hello, Vaca"))
+(defn #void main [] ; Defines a `main` function
+  (println "Hello, Vaca")) ; Prints "Hello, Vaca" to the console
 
-(main)
+(main) ; Calls the `main` function
 ```
-
-Vaca programs are made of **forms**: lists, vectors, maps, symbols, numbers, and so on. Most code
-is written as list forms, where the first element denotes an operation and the remaining elements
-are its operands.

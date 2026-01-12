@@ -1,26 +1,31 @@
-# Iteration without stacks
+# Iteration
 
-Vaca encourages recursion and higher-order sequence operations, but it also provides a standard,
-bounded way to express iteration without unbounded stack growth.
+Vaca has many different ways to iterate (i.e. do something multiple times). The most basic ones are:
 
-## Tail recursion (concept)
+## `map`
 
-A function call is in **tail position** if it is the final action of a function body—i.e. the
-calling function returns the callee’s result directly, without further work.
-
-Many functional programs can be written with tail recursion by adding accumulator parameters.
-
-## Loop/recur style
-
-Vaca defines a conventional iteration pattern using `loop` and `recur`:
+Map is used when you have a collection of items and you want to apply a function to each item producing a new collection.
 
 ```clojure
-(defn #int fac [#int n]
-  (loop [n n acc 1]
-    (if (< n 2)
-      acc
-      (recur (- n 1) (* acc n)))))
+(map (fn [x] (* x 2)) [1 2 3]) ;; => [2 4 6]
 ```
 
-The precise rules of tail position and the semantics of `loop`/`recur` are specified later, in a
-language-level way (independent of any single implementation strategy).
+## `filter`
+
+Filter is used when you have a collection of items and you want to keep only the items that satisfy a condition.
+
+```clojure
+(filter (fn [x] (> x 5)) [1 2 3 4 5 6 7 8 9 10]) ;; => [6 7 8 9 10]
+```
+
+## `loop` and `recur`
+
+Loop and recur are used when you want to iterate an indefinite number of times, you then use `recur` to indicate 
+when to iterate again, and you return some value when its time to stop.
+
+```clojure
+(loop [n 0] ; Loop with one parameter `n` initialized to 0
+  (if (> n 10)
+    n ; If `n` is greater than 10, return `n`
+    (recur (+ n 1)))) ; Otherwise increment `n` and iterate again
+```

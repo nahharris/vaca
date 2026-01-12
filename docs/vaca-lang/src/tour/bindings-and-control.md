@@ -13,6 +13,8 @@ spec defines their user-visible meaning precisely.
 (def #string language "vaca")
 ```
 
+> Top-level bindings can only be accessed from other modules when they are imported with the `use` macro.
+
 ## Local bindings
 
 `let` introduces local bindings for a body of forms:
@@ -20,12 +22,15 @@ spec defines their user-visible meaning precisely.
 ```clojure
 (let [x 10
       y 32]
-  (+ x y))
+  (+ x y)) ;; => 42
+(println x) ;; => undefined symbol: x
 ```
+
+The symbols `x` and `y` are local to the `let` form and are not accessible outside of it.
 
 ## Conditionals
 
-`if` chooses between two branches:
+`if` chooses between two branches and only evaluating one of them:
 
 ```clojure
 (if (> n 0)
@@ -33,14 +38,12 @@ spec defines their user-visible meaning precisely.
   "non-positive")
 ```
 
-Truthiness is specified in the “Truthiness” chapter.
-
 ## Sequencing
 
-`do` evaluates multiple forms in order and returns the last value:
+`do` is a special form that evaluates multiple forms in order and returns the last value:
 
 ```clojure
 (do
-  (println "side effect")
-  42)
+  (println "some operation")
+  42) ;; => 42
 ```
