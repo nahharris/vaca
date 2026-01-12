@@ -61,16 +61,6 @@
           :doc "Defines a value")
 ```
 
-### `deftype`
-
-```clojure
-(defmacro deftype [#stl.macro/Symbol symbol
-                   #(stl.macro/Form (stl.macro/Typed stl.macro/Symbol)) value]
-          :options [#stl.macro/StringLiteral doc]
-          :flags [private]
-          :doc "Defines a type")
-```
-
 ### `defn`
 
 ```clojure
@@ -80,4 +70,50 @@
           :options [#stl.macro/StringLiteral doc]
           :flags [private]
           :doc "Defines a function")
+```
+
+## Tail Call Optimization
+
+### `recur`
+
+`(recur arg1 arg2 ...)` performs explicit tail recursion. It jumps back to the start of the
+enclosing function or `loop` with new argument values **without** growing the call stack.
+
+`recur` must be in tail position (the last expression evaluated).
+
+```clojure
+;; Tail-recursive factorial
+(defn fac [n acc]
+  (if (< n 2)
+    acc
+    (recur (- n 1) (* acc n))))
+
+(fac 100 1)
+```
+
+### `loop`
+
+`(loop [name1 val1 name2 val2 ...] body...)` establishes local bindings that can be re-bound
+with `recur`. This is useful for iteration without defining a helper function.
+
+```clojure
+(defn fac [n]
+  (loop [n n acc 1]
+    (if (< n 2)
+      acc
+      (recur (- n 1) (* acc n)))))
+
+(fac 100)
+```
+
+### Stack Overflow Protection
+
+The interpreter limits recursion depth to 10,000 calls. Non-tail-recursive functions that
+exceed this will return an error (instead of crashing):
+
+```clojure
+(defn bad-fac [n]
+  (if (< n 2) 1 (* n (bad-fac (- n 1)))))
+
+(bad-fac 100000)  ;; Error: stack overflow: depth exceeded 10000
 ```
