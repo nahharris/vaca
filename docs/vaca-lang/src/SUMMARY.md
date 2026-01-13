@@ -13,42 +13,17 @@
 - [Modules and libraries](./tour/modules.md)
 - [Macros](./tour/macros.md)
 
-# Syntax and the reader
+# Syntax
 
-- [Lexical structure](./syntax/lexical-structure.md)
-- [Forms and grammar (VEDN)](./syntax/forms-and-grammar.md)
+- [Syntax overview](./syntax/overview.md)
+- [Separators](./syntax/separators.md)
+- [Atoms](./syntax/atoms.md)
+- [Collections](./syntax/collections.md)
+- [Annotations](./syntax/annotations.md)
 
-# Evaluation model
+# Semantics
 
-- [Environments and scopes](./eval/environments-and-scopes.md)
-- [Evaluation order](./eval/evaluation-order.md)
-- [Truthiness](./eval/truthiness.md)
-- [Equality and hashing](./eval/equality-and-hashing.md)
-- [Errors](./eval/errors.md)
-
-# Kernel and Prelude
-
-- [Kernel requirements](./kernel-and-prelude/kernel.md)
-- [The Standard Prelude](./kernel-and-prelude/prelude.md)
-
-# Macros and metaprogramming
-
-- [Quotation](./macros/quotation.md)
-- [Macro expansion model](./macros/expansion-model.md)
-- [Hygiene and conventions](./macros/hygiene.md)
-
-# Module system
-
-- [Module identifiers and resolution](./modules/resolution.md)
-- [Exports and imports](./modules/exports-and-imports.md)
-
-# Type system
-
-- [Overview](./types/overview.md)
-- [Type ascription and casts](./types/ascription-and-casts.md)
-- [User-defined types](./types/user-defined-types.md)
-- [Option and Result](./types/option-and-result.md)
-- [Type checking](./types/type-checking.md)
+- [List processing](./semantics/list-processing.md)
 
 # Standard library
 
@@ -75,6 +50,3 @@
 # Appendices
 
 - [Complete grammar (EBNF)](./appendices/grammar-ebnf.md)
-- [Glossary](./appendices/glossary.md)
-- [Rationale](./appendices/rationale.md)
-- [Compatibility notes](./appendices/compatibility.md)
