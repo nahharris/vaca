@@ -7,9 +7,9 @@ use std::thread;
 use tempfile::tempdir;
 
 use super::*;
-use crate::bezerro::{register_builtins, Env};
 use crate::bezerro::error::UseError;
 use crate::bezerro::value::Value;
+use crate::bezerro::{register_builtins, Env};
 
 fn eval_program(src: &str) -> Result<String, crate::bezerro::error::EvalError> {
     // IMPORTANT (Windows): deep recursion can overflow the OS thread stack before our
@@ -68,6 +68,18 @@ fn eval_snippet(
         last = eval(node, env)?;
     }
     Ok(last)
+}
+
+#[test]
+fn keyword_equality_preserves_namespace_vs_slash_in_name() {
+    let v = eval_program("(== `te/st`: :te/st)").unwrap();
+    assert_eq!(v, "false");
+}
+
+#[test]
+fn let_uses_map_bindings() {
+    let v = eval_program("(let {x 10 y 32} (+ x y))").unwrap();
+    assert_eq!(v, "42");
 }
 
 #[test]
@@ -290,7 +302,7 @@ fn use_rewrite_is_binder_aware_in_macro_expansions() {
         (def x 100)
         (defn id [n] n)
         (defmacro m []
-          (quote (let [x 1] (id x))))
+          (quote (let {x 1} (id x))))
         "#,
     )
     .unwrap();
@@ -404,4 +416,3 @@ fn use_caches_module_evaluation() {
         .unwrap()
         .unwrap();
 }
-

@@ -9,7 +9,11 @@ use crate::bezerro::value::Value;
 use super::core::MAX_STACK_DEPTH;
 use super::core::{eval_do_forms_impl, eval_value_impl, recur_tail_position_error};
 
-pub(super) fn special_def(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize) -> Result<Value, EvalError> {
+pub(super) fn special_def(
+    args: &[Value],
+    env: &Rc<RefCell<Env>>,
+    depth: usize,
+) -> Result<Value, EvalError> {
     if args.len() != 2 {
         return Err(EvalError::ArityError {
             expected: 2,
@@ -30,7 +34,11 @@ pub(super) fn special_def(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize) 
     Ok(value)
 }
 
-pub(super) fn special_defn(args: &[Value], env: &Rc<RefCell<Env>>, _depth: usize) -> Result<Value, EvalError> {
+pub(super) fn special_defn(
+    args: &[Value],
+    env: &Rc<RefCell<Env>>,
+    _depth: usize,
+) -> Result<Value, EvalError> {
     if args.len() < 3 {
         return Err(EvalError::Custom(
             "defn expects: (defn name [params] body...)".to_string(),
@@ -47,7 +55,11 @@ pub(super) fn special_defn(args: &[Value], env: &Rc<RefCell<Env>>, _depth: usize
     Ok(lambda)
 }
 
-pub(super) fn special_fn(args: &[Value], env: &Rc<RefCell<Env>>, _named: bool) -> Result<Value, EvalError> {
+pub(super) fn special_fn(
+    args: &[Value],
+    env: &Rc<RefCell<Env>>,
+    _named: bool,
+) -> Result<Value, EvalError> {
     if args.len() < 2 {
         return Err(EvalError::Custom(
             "fn expects: (fn [params] body...)".to_string(),
@@ -105,7 +117,11 @@ fn parse_params(form: &Value) -> Result<Vec<String>, EvalError> {
     Ok(out)
 }
 
-pub(super) fn special_if(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize) -> Result<Value, EvalError> {
+pub(super) fn special_if(
+    args: &[Value],
+    env: &Rc<RefCell<Env>>,
+    depth: usize,
+) -> Result<Value, EvalError> {
     if args.len() != 3 {
         return Err(EvalError::ArityError {
             expected: 3,
@@ -123,41 +139,51 @@ pub(super) fn special_if(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize) -
     }
 }
 
-pub(super) fn special_do(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize) -> Result<Value, EvalError> {
+pub(super) fn special_do(
+    args: &[Value],
+    env: &Rc<RefCell<Env>>,
+    depth: usize,
+) -> Result<Value, EvalError> {
     eval_do_forms_impl(args, env, depth + 1)
 }
 
-pub(super) fn special_let(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize) -> Result<Value, EvalError> {
+pub(super) fn special_let(
+    args: &[Value],
+    env: &Rc<RefCell<Env>>,
+    depth: usize,
+) -> Result<Value, EvalError> {
     if args.len() < 2 {
         return Err(EvalError::Custom(
-            "let expects: (let [name value ...] body...)".to_string(),
+            "let expects: (let {name value ...} body...)".to_string(),
         ));
     }
-    let Value::Vector(bindings) = &args[0] else {
+    let Value::Map(bindings) = &args[0] else {
         return Err(EvalError::TypeError {
-            expected: "vector",
+            expected: "map",
             got: args[0].type_name(),
         });
     };
-    if bindings.len() % 2 != 0 {
-        return Err(EvalError::Custom(
-            "let bindings must have even number of forms".to_string(),
-        ));
-    }
 
     let new_env = Rc::new(RefCell::new(Env::with_parent(env.clone())));
-    for pair in bindings.chunks(2) {
-        let Value::Symbol(name) = &pair[0] else {
+    let mut evaluated = Vec::with_capacity(bindings.len());
+    for (k, v) in bindings.iter() {
+        let Value::Symbol(name) = k else {
             return Err(EvalError::TypeError {
                 expected: "symbol",
-                got: pair[0].type_name(),
+                got: k.type_name(),
             });
         };
-        let value = eval_value_impl(&pair[1], &new_env, depth + 1)?;
+        // Map bindings are evaluated in the *outer* environment so their behavior
+        // doesn't depend on map iteration order.
+        let value = eval_value_impl(v, env, depth + 1)?;
         if matches!(value, Value::Recur(_)) {
             return Err(recur_tail_position_error());
         }
-        new_env.borrow_mut().define(name.clone(), value);
+        evaluated.push((name.clone(), value));
+    }
+
+    for (name, value) in evaluated {
+        new_env.borrow_mut().define(name, value);
     }
     eval_do_forms_impl(&args[1..], &new_env, depth + 1)
 }
@@ -172,7 +198,11 @@ pub(super) fn special_quote(args: &[Value]) -> Result<Value, EvalError> {
     Ok(args[0].clone())
 }
 
-pub(super) fn special_pipe(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize) -> Result<Value, EvalError> {
+pub(super) fn special_pipe(
+    args: &[Value],
+    env: &Rc<RefCell<Env>>,
+    depth: usize,
+) -> Result<Value, EvalError> {
     if args.is_empty() {
         return Ok(Value::Nil);
     }
@@ -199,7 +229,11 @@ pub(super) fn special_pipe(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize)
     Ok(acc)
 }
 
-pub(super) fn special_recur(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize) -> Result<Value, EvalError> {
+pub(super) fn special_recur(
+    args: &[Value],
+    env: &Rc<RefCell<Env>>,
+    depth: usize,
+) -> Result<Value, EvalError> {
     let mut out = Vec::with_capacity(args.len());
     for arg in args {
         let v = eval_value_impl(arg, env, depth + 1)?;
@@ -211,7 +245,11 @@ pub(super) fn special_recur(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize
     Ok(Value::Recur(out))
 }
 
-pub(super) fn special_loop(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize) -> Result<Value, EvalError> {
+pub(super) fn special_loop(
+    args: &[Value],
+    env: &Rc<RefCell<Env>>,
+    depth: usize,
+) -> Result<Value, EvalError> {
     if args.len() < 2 {
         return Err(EvalError::Custom(
             "loop expects: (loop [name value ...] body...)".to_string(),
@@ -272,4 +310,3 @@ pub(super) fn special_loop(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize)
         }
     }
 }
-

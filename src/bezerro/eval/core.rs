@@ -16,18 +16,7 @@ use super::use_form::special_use;
 pub(super) const MAX_STACK_DEPTH: usize = 10_000;
 
 pub(super) const SPECIAL_FORM_HEADS: &[&str] = &[
-    "def",
-    "defn",
-    "fn",
-    "if",
-    "do",
-    "let",
-    "quote",
-    "defmacro",
-    "deftype",
-    "use",
-    "|>",
-    "recur",
+    "def", "defn", "fn", "if", "do", "let", "quote", "defmacro", "deftype", "use", "|>", "recur",
     "loop",
 ];
 
@@ -56,7 +45,11 @@ pub fn eval_value(form: &Value, env: &Rc<RefCell<Env>>) -> Result<Value, EvalErr
     Ok(out)
 }
 
-pub(super) fn eval_value_impl(form: &Value, env: &Rc<RefCell<Env>>, depth: usize) -> Result<Value, EvalError> {
+pub(super) fn eval_value_impl(
+    form: &Value,
+    env: &Rc<RefCell<Env>>,
+    depth: usize,
+) -> Result<Value, EvalError> {
     if depth > MAX_STACK_DEPTH {
         return Err(EvalError::StackOverflow {
             limit: MAX_STACK_DEPTH,
@@ -123,7 +116,11 @@ pub(super) fn eval_value_impl(form: &Value, env: &Rc<RefCell<Env>>, depth: usize
     }
 }
 
-fn eval_list_impl(items: &[Value], env: &Rc<RefCell<Env>>, depth: usize) -> Result<Value, EvalError> {
+fn eval_list_impl(
+    items: &[Value],
+    env: &Rc<RefCell<Env>>,
+    depth: usize,
+) -> Result<Value, EvalError> {
     if items.is_empty() {
         return Ok(Value::List(vec![]));
     }
@@ -187,7 +184,11 @@ fn apply_impl(
 
     match func {
         Value::Builtin { func, .. } => func(args, env),
-        Value::Lambda { params, body, env: captured } => {
+        Value::Lambda {
+            params,
+            body,
+            env: captured,
+        } => {
             if args.len() != params.len() {
                 return Err(EvalError::ArityError {
                     expected: params.len(),
@@ -222,7 +223,12 @@ fn apply_impl(
 }
 
 fn apply_macro(func: &Value, raw_args: &[Value], depth: usize) -> Result<Value, EvalError> {
-    let Value::Macro { params, body, env: captured } = func else {
+    let Value::Macro {
+        params,
+        body,
+        env: captured,
+    } = func
+    else {
         return Err(EvalError::NotCallable(func.type_name()));
     };
 
@@ -264,9 +270,9 @@ pub fn node_to_form(node: &Node<'_>) -> Value {
         Kind::Bool(b) => Value::Bool(*b),
         Kind::Char(c) => Value::Char(*c),
         Kind::String(s) => Value::String(s.as_str().to_string()),
-        Kind::Keyword(k) => Value::Keyword(match k.namespace {
-            Some(ns) => format!("{ns}/{}", k.name),
-            None => k.name.to_string(),
+        Kind::Keyword(k) => Value::Keyword(crate::bezerro::value::Keyword {
+            namespace: k.namespace.map(str::to_string),
+            name: k.name.to_string(),
         }),
         Kind::Symbol(s) => Value::Symbol(s.raw.to_string()),
         Kind::Number(n) => number_to_value(n),
@@ -296,4 +302,3 @@ pub(super) fn number_to_value(n: &Number<'_>) -> Value {
             .unwrap_or_else(|_| Value::Float(0.0)),
     }
 }
-

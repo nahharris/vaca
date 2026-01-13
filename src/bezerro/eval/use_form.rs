@@ -11,7 +11,11 @@ use crate::bezerro::value::Value;
 
 use super::core::{eval_value_impl, node_to_form, recur_tail_position_error, SPECIAL_FORM_HEADS};
 
-pub(super) fn special_use(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize) -> Result<Value, EvalError> {
+pub(super) fn special_use(
+    args: &[Value],
+    env: &Rc<RefCell<Env>>,
+    depth: usize,
+) -> Result<Value, EvalError> {
     if args.is_empty() || args.len() > 2 {
         return Err(EvalError::Use(UseError::BadArity { got: args.len() }));
     }
@@ -51,23 +55,17 @@ pub(super) fn special_use(args: &[Value], env: &Rc<RefCell<Env>>, depth: usize) 
             return Err(EvalError::Use(UseError::NameCollision { name: visible }));
         }
 
-        let mangled = module_info
-            .mangle_map
-            .get(&orig)
-            .ok_or_else(|| {
-                EvalError::Use(UseError::Internal {
-                    message: format!("missing mangle for `{orig}`"),
-                })
-            })?;
+        let mangled = module_info.mangle_map.get(&orig).ok_or_else(|| {
+            EvalError::Use(UseError::Internal {
+                message: format!("missing mangle for `{orig}`"),
+            })
+        })?;
 
-        let value = root
-            .borrow()
-            .get(mangled)
-            .ok_or_else(|| {
-                EvalError::Use(UseError::Internal {
-                    message: format!("missing value for `{orig}`"),
-                })
-            })?;
+        let value = root.borrow().get(mangled).ok_or_else(|| {
+            EvalError::Use(UseError::Internal {
+                message: format!("missing value for `{orig}`"),
+            })
+        })?;
 
         define_global(&root, visible, value);
     }
@@ -94,7 +92,7 @@ fn parse_use_import_list(form: &Value) -> Result<Vec<(String, String)>, EvalErro
 
         if i + 2 < items.len() {
             if let Value::Keyword(k) = &items[i + 1] {
-                if k == "as" {
+                if k.is_bare("as") {
                     let Value::Symbol(alias) = &items[i + 2] else {
                         return Err(EvalError::Use(UseError::ExpectedAliasSymbol {
                             got: items[i + 2].type_name(),
@@ -217,7 +215,10 @@ fn ensure_module_loaded(
         // Restore previous source dir
         root.borrow_mut().set_source_dir_opt(prev_source_dir);
 
-        Ok(ModuleInfo { exports, mangle_map })
+        Ok(ModuleInfo {
+            exports,
+            mangle_map,
+        })
     })();
 
     // Ensure we always clear loading marker.
@@ -242,7 +243,9 @@ fn collect_module_exports(forms: &[Value]) -> Result<HashSet<String>, EvalError>
         if items.len() < 2 {
             continue;
         }
-        let Value::Symbol(head) = &items[0] else { continue };
+        let Value::Symbol(head) = &items[0] else {
+            continue;
+        };
         if !matches!(head.as_str(), "def" | "defn" | "defmacro") {
             continue;
         }
@@ -373,7 +376,12 @@ fn rewrite_list_impl(
             out.push(new_name);
             out.push(items[2].clone()); // params untouched
             for b in &items[3..] {
-                out.push(rewrite_form_impl(b, mangle, &new_shadowed, rewrite_in_quote));
+                out.push(rewrite_form_impl(
+                    b,
+                    mangle,
+                    &new_shadowed,
+                    rewrite_in_quote,
+                ));
             }
             Value::List(out)
         }
@@ -414,28 +422,30 @@ fn rewrite_list_impl(
             if items.len() < 3 {
                 return Value::List(items.to_vec());
             }
-            let Value::Vector(bindings) = &items[1] else {
+            let Value::Map(bindings) = &items[1] else {
                 return Value::List(items.to_vec());
             };
-            if bindings.len() % 2 != 0 {
-                return Value::List(items.to_vec());
-            }
 
-            let mut new_bindings = Vec::with_capacity(bindings.len());
+            // Map bindings are treated as a "parallel" binder:
+            // - binder symbols are not rewritten
+            // - all binding values are rewritten in the *outer* scope
+            // - the body is rewritten in the scope extended by all binder symbols
             let mut scoped = shadowed.clone();
-            for pair in bindings.chunks(2) {
-                let name = &pair[0];
-                let value = &pair[1];
-                new_bindings.push(name.clone()); // binder symbol untouched
-                new_bindings.push(rewrite_form_impl(value, mangle, &scoped, rewrite_in_quote));
-                if let Value::Symbol(s) = name {
+            for k in bindings.keys() {
+                if let Value::Symbol(s) = k {
                     scoped.insert(s.clone());
                 }
             }
 
+            let mut new_bindings: HashMap<Value, Value> = HashMap::with_capacity(bindings.len());
+            for (k, v) in bindings.iter() {
+                let new_v = rewrite_form_impl(v, mangle, shadowed, rewrite_in_quote);
+                new_bindings.insert(k.clone(), new_v);
+            }
+
             let mut out = Vec::with_capacity(items.len());
             out.push(items[0].clone());
-            out.push(Value::Vector(new_bindings));
+            out.push(Value::Map(Rc::new(new_bindings)));
             for b in &items[2..] {
                 out.push(rewrite_form_impl(b, mangle, &scoped, rewrite_in_quote));
             }
@@ -510,10 +520,20 @@ fn rewrite_list_impl(
                 if SPECIAL_FORM_HEADS.contains(&s.as_str()) {
                     out.push(items[0].clone());
                 } else {
-                    out.push(rewrite_form_impl(&items[0], mangle, shadowed, rewrite_in_quote));
+                    out.push(rewrite_form_impl(
+                        &items[0],
+                        mangle,
+                        shadowed,
+                        rewrite_in_quote,
+                    ));
                 }
             } else {
-                out.push(rewrite_form_impl(&items[0], mangle, shadowed, rewrite_in_quote));
+                out.push(rewrite_form_impl(
+                    &items[0],
+                    mangle,
+                    shadowed,
+                    rewrite_in_quote,
+                ));
             }
             for v in &items[1..] {
                 out.push(rewrite_form_impl(v, mangle, shadowed, rewrite_in_quote));
@@ -522,4 +542,3 @@ fn rewrite_list_impl(
         }
     }
 }
-

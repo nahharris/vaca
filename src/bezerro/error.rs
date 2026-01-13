@@ -2,51 +2,22 @@ use std::fmt;
 
 #[derive(Debug, Clone)]
 pub enum UseError {
-    BadArity {
-        got: usize,
-    },
-    ExpectedModuleSymbol {
-        got: &'static str,
-    },
-    ExpectedImportVector {
-        got: &'static str,
-    },
-    ExpectedImportSymbol {
-        got: &'static str,
-    },
-    ExpectedAliasSymbol {
-        got: &'static str,
-    },
-    MissingExport {
-        module: String,
-        symbol: String,
-    },
-    NameCollision {
-        name: String,
-    },
+    BadArity { got: usize },
+    ExpectedModuleSymbol { got: &'static str },
+    ExpectedImportVector { got: &'static str },
+    ExpectedImportSymbol { got: &'static str },
+    ExpectedAliasSymbol { got: &'static str },
+    MissingExport { module: String, symbol: String },
+    NameCollision { name: String },
     EmptyModulePath,
     LastSegmentCannotBeSuper,
-    SuperBeyondRoot {
-        module: String,
-    },
+    SuperBeyondRoot { module: String },
     FailedToDetermineBaseDir,
-    ResolveFailed {
-        path: String,
-        error: String,
-    },
-    ReadFailed {
-        path: String,
-        error: String,
-    },
-    CyclicUse {
-        path: String,
-    },
-    InvalidExportForm {
-        head: String,
-    },
-    Internal {
-        message: String,
-    },
+    ResolveFailed { path: String, error: String },
+    ReadFailed { path: String, error: String },
+    CyclicUse { path: String },
+    InvalidExportForm { head: String },
+    Internal { message: String },
 }
 
 #[derive(Debug, Clone)]
@@ -150,4 +121,3 @@ impl fmt::Display for EvalError {
 }
 
 impl std::error::Error for EvalError {}
-

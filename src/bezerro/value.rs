@@ -9,6 +9,18 @@ use crate::bezerro::error::EvalError;
 
 pub type BuiltinFn = fn(&[Value], &Rc<RefCell<Env>>) -> Result<Value, EvalError>;
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Keyword {
+    pub namespace: Option<String>,
+    pub name: String,
+}
+
+impl Keyword {
+    pub fn is_bare(&self, name: &str) -> bool {
+        self.namespace.is_none() && self.name == name
+    }
+}
+
 #[derive(Clone)]
 pub enum Value {
     Nil,
@@ -17,7 +29,7 @@ pub enum Value {
     Float(f64),
     Char(char),
     String(String),
-    Keyword(String),
+    Keyword(Keyword),
     Symbol(String),
     List(Vec<Value>),
     Vector(Vec<Value>),
@@ -221,7 +233,7 @@ impl fmt::Display for Value {
             }
             Value::Char(c) => write!(f, "\\{}", c),
             Value::String(s) => write!(f, "\"{}\"", escape_string(s)),
-            Value::Keyword(k) => write!(f, ":{k}"),
+            Value::Keyword(k) => write!(f, ":{}", format_keyword(k)),
             Value::Symbol(s) => write!(f, "{s}"),
             Value::List(items) => {
                 write!(f, "(")?;
@@ -273,6 +285,34 @@ fn write_joined(f: &mut fmt::Formatter<'_>, items: &[Value]) -> fmt::Result {
         write!(f, "{}", item)?;
     }
     Ok(())
+}
+
+fn format_keyword(k: &Keyword) -> String {
+    let render = |s: &str| {
+        if needs_backticks(s) {
+            format!("`{s}`")
+        } else {
+            s.to_string()
+        }
+    };
+
+    match &k.namespace {
+        Some(ns) => format!("{}/{}", render(ns), render(&k.name)),
+        None => render(&k.name),
+    }
+}
+
+fn needs_backticks(s: &str) -> bool {
+    s.is_empty()
+        || s.contains('`')
+        || !s.is_ascii()
+        || s.chars().any(|ch| {
+            ch.is_whitespace()
+                || matches!(
+                    ch,
+                    ',' | ';' | '(' | ')' | '[' | ']' | '{' | '}' | '"' | '\\' | '/'
+                )
+        })
 }
 
 fn escape_string(s: &str) -> String {

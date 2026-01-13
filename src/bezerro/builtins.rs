@@ -43,7 +43,10 @@ pub fn register_builtins(env: &mut Env) {
 
     // parsing
     env.define("parse-int".into(), builtin("parse-int", builtin_parse_int));
-    env.define("parse-float".into(), builtin("parse-float", builtin_parse_float));
+    env.define(
+        "parse-float".into(),
+        builtin("parse-float", builtin_parse_float),
+    );
 
     // collections
     env.define("concat".into(), builtin("concat", builtin_concat));
@@ -520,9 +523,10 @@ fn builtin_nth(args: &[Value], _env: &Rc<RefCell<Env>>) -> Result<Value, EvalErr
         });
     }
     let idx = n as usize;
-    v.get(idx)
-        .cloned()
-        .ok_or(EvalError::IndexOutOfBounds { index: idx, len: v.len() })
+    v.get(idx).cloned().ok_or(EvalError::IndexOutOfBounds {
+        index: idx,
+        len: v.len(),
+    })
 }
 
 fn builtin_map(args: &[Value], env: &Rc<RefCell<Env>>) -> Result<Value, EvalError> {
@@ -626,4 +630,3 @@ fn string_for_io(v: &Value) -> String {
         _ => v.to_string(),
     }
 }
-
