@@ -407,11 +407,33 @@ impl<'a> Parser<'a> {
         Ok(Node::new(self.cursor.span_from(start), Kind::Char(value)))
     }
 
+    fn take_symbolish_token(&mut self, start: usize) -> Result<&'a str, Error> {
+        let mut in_backticks = false;
+        while let Some(b) = self.cursor.peek() {
+            if !in_backticks && is_delim_or_ws(b) {
+                break;
+            }
+            if b == b'`' {
+                in_backticks = !in_backticks;
+            }
+            self.cursor.bump();
+        }
+
+        if in_backticks {
+            return Err(self.cursor.error_span(
+                ErrorKind::UnterminatedSymbol,
+                Span::new(start, self.cursor.index),
+            ));
+        }
+
+        Ok(self.cursor.slice(start, self.cursor.index))
+    }
+
     /// Parses a keyword token starting with `:`.
     fn parse_keyword_node(&mut self) -> Result<Node<'a>, Error> {
         let start = self.cursor.index;
         let token_start = self.cursor.index;
-        let token = self.cursor.take_while(token_start, |b| !is_delim_or_ws(b));
+        let token = self.take_symbolish_token(token_start)?;
 
         let keyword = parse_keyword_token(token).map_err(|kind| {
             self.cursor
@@ -430,7 +452,7 @@ impl<'a> Parser<'a> {
     fn parse_token(&mut self) -> Result<Node<'a>, Error> {
         let start = self.cursor.index;
         let token_start = self.cursor.index;
-        let token = self.cursor.take_while(token_start, |b| !is_delim_or_ws(b));
+        let token = self.take_symbolish_token(token_start)?;
         let span = self.cursor.span_from(start);
 
         match token {
@@ -438,13 +460,32 @@ impl<'a> Parser<'a> {
             "true" => Ok(Node::new(span, Kind::Bool(true))),
             "false" => Ok(Node::new(span, Kind::Bool(false))),
             _ => {
-                // Trailing-colon keyword: `symbol:`
                 if token.ends_with(':') {
-                    let keyword = parse_keyword_token(token).map_err(|kind| {
+                    let base = &token[..token.len() - 1];
+                    let analysis = analyze_symbol_token(base).map_err(|kind| {
                         self.cursor
                             .error_span(kind, Span::new(token_start, self.cursor.index))
                     })?;
-                    return Ok(Node::new(span, Kind::Keyword(keyword)));
+
+                    // Disambiguation:
+                    // - `x:` is a keyword
+                    // - `Some/symbol:` is a symbol (colon belongs to the name)
+                    // - `` `So me`/symbol: `` is a keyword (namespaced trailing-colon requires backticks)
+                    let is_keyword = match analysis.namespace {
+                        None => true,
+                        Some(_) => analysis.has_backticked_component,
+                    };
+
+                    if is_keyword {
+                        return Ok(Node::new(
+                            span,
+                            Kind::Keyword(Keyword {
+                                raw: token,
+                                namespace: analysis.namespace,
+                                name: analysis.name,
+                            }),
+                        ));
+                    }
                 }
                 if let Ok(number) = parse_number(token) {
                     return Ok(Node::new(span, Kind::Number(number)));
@@ -514,7 +555,7 @@ fn parse_keyword_token(token: &str) -> Result<Keyword<'_>, ErrorKind> {
     }
 
     if token.starts_with(':') {
-        // Leading-colon keywords: `:name`, `:ns/name`
+        // Leading-colon keywords: `:name`, `:ns/name`, `:`...`/...`
         if token.starts_with("::") || token.starts_with(":/") {
             return Err(ErrorKind::InvalidKeyword);
         }
@@ -546,18 +587,33 @@ fn parse_keyword_token(token: &str) -> Result<Keyword<'_>, ErrorKind> {
     Err(ErrorKind::InvalidKeyword)
 }
 
-/// Parses and validates a symbol token according to EDN's strict rules.
 fn parse_symbol(token: &str) -> Result<Symbol<'_>, ErrorKind> {
+    let analysis = analyze_symbol_token(token)?;
+    Ok(Symbol {
+        raw: token,
+        namespace: analysis.namespace,
+        name: analysis.name,
+    })
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SymbolAnalysis<'a> {
+    namespace: Option<&'a str>,
+    name: &'a str,
+    has_backticked_component: bool,
+}
+
+fn analyze_symbol_token(token: &str) -> Result<SymbolAnalysis<'_>, ErrorKind> {
     if token.is_empty() {
         return Err(ErrorKind::InvalidSymbol);
     }
 
     // Special-case: '/' alone is allowed.
     if token == "/" {
-        return Ok(Symbol {
-            raw: token,
+        return Ok(SymbolAnalysis {
             namespace: None,
             name: token,
+            has_backticked_component: false,
         });
     }
 
@@ -565,12 +621,29 @@ fn parse_symbol(token: &str) -> Result<Symbol<'_>, ErrorKind> {
         return Err(ErrorKind::InvalidSymbol);
     }
 
-    let slash_count = token.as_bytes().iter().filter(|b| **b == b'/').count();
-    if slash_count > 1 {
+    // Find at most one '/' separator outside backticks.
+    let mut in_backticks = false;
+    let mut sep_idx: Option<usize> = None;
+    for (i, ch) in token.char_indices() {
+        match ch {
+            '`' => in_backticks = !in_backticks,
+            '/' if !in_backticks => {
+                if sep_idx.is_some() {
+                    return Err(ErrorKind::InvalidSymbol);
+                }
+                sep_idx = Some(i);
+            }
+            _ => {}
+        }
+    }
+
+    if in_backticks {
         return Err(ErrorKind::InvalidSymbol);
     }
 
-    let (namespace, name) = if let Some((ns, nm)) = token.split_once('/') {
+    let (ns_raw, name_raw) = if let Some(i) = sep_idx {
+        let ns = &token[..i];
+        let nm = &token[i + 1..];
         if ns.is_empty() || nm.is_empty() {
             return Err(ErrorKind::InvalidSymbol);
         }
@@ -579,16 +652,39 @@ fn parse_symbol(token: &str) -> Result<Symbol<'_>, ErrorKind> {
         (None, token)
     };
 
-    validate_symbol_component(name)?;
-    if let Some(ns) = namespace {
-        validate_symbol_component(ns)?;
-    }
+    let (name, name_bt) = parse_symbol_component_extended(name_raw)?;
+    let (namespace, ns_bt) = if let Some(ns) = ns_raw {
+        let (ns, bt) = parse_symbol_component_extended(ns)?;
+        (Some(ns), bt)
+    } else {
+        (None, false)
+    };
 
-    Ok(Symbol {
-        raw: token,
+    Ok(SymbolAnalysis {
         namespace,
         name,
+        has_backticked_component: name_bt || ns_bt,
     })
+}
+
+fn parse_symbol_component_extended(component: &str) -> Result<(&str, bool), ErrorKind> {
+    if component.is_empty() {
+        return Err(ErrorKind::InvalidSymbol);
+    }
+
+    if component.starts_with('`') || component.ends_with('`') {
+        if !(component.starts_with('`') && component.ends_with('`') && component.len() >= 2) {
+            return Err(ErrorKind::InvalidSymbol);
+        }
+        let inner = &component[1..component.len() - 1];
+        if inner.is_empty() || inner.contains('`') {
+            return Err(ErrorKind::InvalidSymbol);
+        }
+        return Ok((inner, true));
+    }
+
+    validate_symbol_component(component)?;
+    Ok((component, false))
 }
 
 fn validate_symbol_component(s: &str) -> Result<(), ErrorKind> {
@@ -843,12 +939,13 @@ mod tests {
 
     #[test]
     fn parse_trailing_colon_keywords() {
-        let values = parse("{:x 1, ns/name: 2}").unwrap();
+        let values = parse("{:x 1, x: 2, `So me`/symbol: 3}").unwrap();
         let Kind::Map(map) = &values[0].kind else {
             panic!("expected map");
         };
         assert_keyword(&map[0].0, ":x");
-        assert_keyword(&map[1].0, "ns/name:");
+        assert_keyword(&map[1].0, "x:");
+        assert_keyword(&map[2].0, "`So me`/symbol:");
     }
 
     #[test]
@@ -1086,5 +1183,129 @@ mod tests {
         assert!(parse("-1").is_ok()); // number token
         assert!(parse("+1").is_ok());
         assert!(parse(".1").is_err());
+    }
+
+    #[test]
+    fn parse_backtick_symbols_allow_whitespace_unicode_and_delims() {
+        let values = parse("`Complex Symbol` `こんにちは 世界` `a) b] c`").unwrap();
+        assert_eq!(values.len(), 3);
+
+        let Kind::Symbol(s0) = &values[0].kind else {
+            panic!("expected symbol");
+        };
+        assert_eq!(s0.raw, "`Complex Symbol`");
+        assert_eq!(s0.name, "Complex Symbol");
+        assert_eq!(s0.namespace, None);
+
+        let Kind::Symbol(s1) = &values[1].kind else {
+            panic!("expected symbol");
+        };
+        assert_eq!(s1.raw, "`こんにちは 世界`");
+        assert_eq!(s1.name, "こんにちは 世界");
+
+        let Kind::Symbol(s2) = &values[2].kind else {
+            panic!("expected symbol");
+        };
+        assert_eq!(s2.raw, "`a) b] c`");
+        assert_eq!(s2.name, "a) b] c");
+    }
+
+    #[test]
+    fn unterminated_backtick_symbol_is_error() {
+        assert!(parse("`nope").is_err());
+    }
+
+    #[test]
+    fn parse_backtick_keywords_in_both_spellings() {
+        let values = parse(":`Complex Keyword` `Complex Keyword`:").unwrap();
+        assert_eq!(values.len(), 2);
+
+        let Kind::Keyword(k0) = &values[0].kind else {
+            panic!("expected keyword");
+        };
+        assert_eq!(k0.raw, ":`Complex Keyword`");
+        assert_eq!(k0.namespace, None);
+        assert_eq!(k0.name, "Complex Keyword");
+
+        let Kind::Keyword(k1) = &values[1].kind else {
+            panic!("expected keyword");
+        };
+        assert_eq!(k1.raw, "`Complex Keyword`:");
+        assert_eq!(k1.namespace, None);
+        assert_eq!(k1.name, "Complex Keyword");
+    }
+
+    #[test]
+    fn unterminated_backtick_keyword_is_error() {
+        assert!(parse(":`nope").is_err());
+        assert!(parse("`nope:").is_err());
+    }
+
+    #[test]
+    fn parse_symbols_with_backticks_in_namespace_and_or_name() {
+        let values =
+            parse("`So me/sym bol` Some/`sym bol` `So me`/symbol `So me`/`sym bol`").unwrap();
+        assert_eq!(values.len(), 4);
+
+        let Kind::Symbol(s0) = &values[0].kind else {
+            panic!("expected symbol");
+        };
+        assert_eq!(s0.raw, "`So me/sym bol`");
+        assert_eq!(s0.namespace, None);
+        assert_eq!(s0.name, "So me/sym bol");
+
+        let Kind::Symbol(s1) = &values[1].kind else {
+            panic!("expected symbol");
+        };
+        assert_eq!(s1.raw, "Some/`sym bol`");
+        assert_eq!(s1.namespace, Some("Some"));
+        assert_eq!(s1.name, "sym bol");
+
+        let Kind::Symbol(s2) = &values[2].kind else {
+            panic!("expected symbol");
+        };
+        assert_eq!(s2.raw, "`So me`/symbol");
+        assert_eq!(s2.namespace, Some("So me"));
+        assert_eq!(s2.name, "symbol");
+
+        let Kind::Symbol(s3) = &values[3].kind else {
+            panic!("expected symbol");
+        };
+        assert_eq!(s3.raw, "`So me`/`sym bol`");
+        assert_eq!(s3.namespace, Some("So me"));
+        assert_eq!(s3.name, "sym bol");
+    }
+
+    #[test]
+    fn parse_keywords_with_backticks_in_namespace_and_or_name() {
+        let values = parse(":`So me`/`sym bol` `So me`/symbol:").unwrap();
+        assert_eq!(values.len(), 2);
+
+        let Kind::Keyword(k0) = &values[0].kind else {
+            panic!("expected keyword");
+        };
+        assert_eq!(k0.raw, ":`So me`/`sym bol`");
+        assert_eq!(k0.namespace, Some("So me"));
+        assert_eq!(k0.name, "sym bol");
+
+        let Kind::Keyword(k1) = &values[1].kind else {
+            panic!("expected keyword");
+        };
+        assert_eq!(k1.raw, "`So me`/symbol:");
+        assert_eq!(k1.namespace, Some("So me"));
+        assert_eq!(k1.name, "symbol");
+    }
+
+    #[test]
+    fn trailing_colon_namespaced_without_backticks_is_symbol_not_keyword() {
+        let values = parse("Some/symbol:").unwrap();
+        assert_eq!(values.len(), 1);
+
+        let Kind::Symbol(s) = &values[0].kind else {
+            panic!("expected symbol");
+        };
+        assert_eq!(s.raw, "Some/symbol:");
+        assert_eq!(s.namespace, Some("Some"));
+        assert_eq!(s.name, "symbol:");
     }
 }

@@ -40,6 +40,8 @@ pub enum ErrorKind {
     InvalidDispatch,
     /// A symbol failed EDN strict validation.
     InvalidSymbol,
+    /// A backtick-quoted symbol/keyword wasn't terminated by a closing `` ` ``.
+    UnterminatedSymbol,
     /// A keyword failed EDN strict validation.
     InvalidKeyword,
     /// A number token failed EDN strict validation.
