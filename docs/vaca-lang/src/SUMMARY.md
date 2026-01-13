@@ -29,6 +29,7 @@
 
 - [Overview](./stl/overview.md)
 - [stl.core](./stl/core.md)
+- [stl.macro](./stl/macro.md)
 - [stl.math](./stl/math.md)
 - [stl.seq](./stl/seq.md)
 - [stl.vec](./stl/vec.md)

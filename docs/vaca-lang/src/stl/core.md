@@ -1,20 +1,94 @@
 # `stl.core`
 
 `stl.core` defines the fundamental functions, predicates, macros, and types that underpin most
-Vaca programs.
+Vaca programs and are available in the prelude (i.e. are automatically imported).
 
-## Fundamental macros
+## `def`
 
-The following macros are part of the prelude surface and are specified in “The Standard Prelude”:
+`def` introduces a top-level binding. Its signature is:
 
-- `def`, `defn`, `fn`
-- `let`, `if`, `do`
-- `quote`
-- `|>`
-- `loop`, `recur`
-- `defmacro`
+```clojure
+(defmacro def [symbol value]
+               #options: [doc]
+               #flags: [private])
+```
 
-This module additionally defines core convenience macros.
+## `defn`
+
+`defn` defines a function. Its signature is:
+
+```clojure
+(defmacro defn [symbol params]
+            #options: {doc "" options {} flags [] remainder nil}
+            #flags: [private]
+            #remainder: body)
+```
+
+## `fn`
+
+`fn` defines a function. Its signature is:
+
+```clojure
+(defmacro fn [params]
+            #options: {options {} flags [] remainder nil}
+            #flags: [private]
+            #remainder: body)
+```
+
+## `let`
+
+`let` defines a local binding. Its signature is:
+
+```clojure
+(defmacro let [bindings]
+            #remainder: body)
+```
+
+## `if`
+
+`if` defines a conditional. Its signature is:
+```clojure
+(defmacro if [condition then else])
+```
+
+## `do`
+
+`do` evaluates multiple forms in order and returns the last value. Its signature is:
+```clojure
+(defmacro do [] #remainder: body)
+```
+
+## `quote`
+
+`quote` quotes a form. Its signature is:
+```clojure
+(defmacro quote [form])
+```
+
+## `|>`
+
+`|>` is a macro that pipes the result of the first form to the second form, and so on. Its signature is:
+```clojure
+(defmacro |> [] #remainder: body)
+```
+
+## `loop`
+
+`loop` defines a loop. Its signature is:
+```clojure
+(defmacro loop [bindings] #remainder: body)
+(defmacro recur [args])
+```
+
+## `defmacro`
+
+`defmacro` defines a macro. Its signature is:
+```clojure
+(defmacro defmacro [symbol params]
+            #options: {options {} flags [] remainder nil}
+            #remainder: body)
+```
+
 
 ### `(& a b ...)` (short-circuit and)
 

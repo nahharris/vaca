@@ -20,8 +20,8 @@ spec defines their user-visible meaning precisely.
 `let` introduces local bindings for a body of forms:
 
 ```clojure
-(let [x 10
-      y 32]
+(let {x 10
+      y 32}
   (+ x y)) ;; => 42
 (println x) ;; => undefined symbol: x
 ```
